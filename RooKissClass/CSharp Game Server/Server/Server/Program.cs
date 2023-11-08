@@ -1,33 +1,43 @@
 ﻿using System;
-using static System.Collections.Specialized.BitVector32;
+using System.Collections.Generic;
 using System.Net;
+using System.Net.Sockets;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using ServerCore;
 
-namespace Server // Note: actual namespace depends on the project name.
+namespace Server
 {
+	class Program
+	{
+		static Listener _listener = new Listener();
+		public static GameRoom Room = new GameRoom();
 
+		static void FlushRoom()
+		{
+			Room.Push(() => Room.Flush());
+			JobTimer.Instance.Push(FlushRoom, 250);
+		}
 
-    class Program
-    {
-        static Listener _listener = new Listener();
+		static void Main(string[] args)
+		{
+			// DNS (Domain Name System)
+			string host = Dns.GetHostName();
+			IPHostEntry ipHost = Dns.GetHostEntry(host);
+			IPAddress ipAddr = ipHost.AddressList[0];
+			IPEndPoint endPoint = new IPEndPoint(ipAddr, 7777);
 
-        static void Main(string[] args)
-        {
-            // DNS (Domain Name System)
-            string host = Dns.GetHostName();
-            IPHostEntry ipHost = Dns.GetHostEntry(host);
-            IPAddress ipAddr = ipHost.AddressList[0];
-            IPEndPoint endPoint = new IPEndPoint(ipAddr, 7777); // 최종 주소
+			_listener.Init(endPoint, () => { return SessionManager.Instance.Generate(); });
+			Console.WriteLine("Listening...");
 
+			//FlushRoom();
+			JobTimer.Instance.Push(FlushRoom);
 
-            _listener.Init(endPoint, () => { return new ClientSession(); });
-            Console.WriteLine("Listening...");
-
-            while (true)
-            {
-                ; // 프로그램 종료 되지 않게
-            }
-        }
-    }
+			while (true)
+			{
+				JobTimer.Instance.Flush();
+			}
+		}
+	}
 }
